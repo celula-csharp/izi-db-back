@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Sockets;
 using application.Docker.Interfaces;
 using infrastructure.Docker.Configuration;
 using Microsoft.Extensions.Logging;
@@ -19,16 +21,66 @@ public class PortFinderService : IPortFinderService
     
     public int FindAvailablePort()
     {
-        throw new NotImplementedException();
+        for (int port = _config.PortRangeStart; port <= _config.PortRangeEnd; port++)
+        {
+            if (IsPortAvailable(port) && !_usedPorts.Contains(port))
+            {
+                _usedPorts.Add(port);
+                _logger.LogInformation("Port {Port} is available", port);
+                return port;
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"There is not available ports in the range {_config.PortRangeStart}-{_config.PortRangeEnd}");
     }
 
     public bool IsPortAvailable(int port)
     {
-        throw new NotImplementedException();
+        try
+        {
+            // Try connect as a client.
+            using var client = new TcpClient();
+            client.Connect(IPAddress.Loopback, port);
+            return false;
+        }
+        catch (SocketException)
+        {
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error verifying port {Port}", port);
+            return false;
+        }
     }
 
     public List<int> GetAvailablePorts(int count)
     {
-        throw new NotImplementedException();
+        var availablePorts = new List<int>();
+
+        for (int port = _config.PortRangeStart; port <= _config.PortRangeEnd && availablePorts.Count < count; port++)
+        {
+            if (IsPortAvailable(port) && !_usedPorts.Contains(port))
+            {
+                availablePorts.Add(port);
+                _usedPorts.Add(port);
+            }
+        }
+
+        if (availablePorts.Count < count)
+        {
+            throw new InvalidOperationException(
+                $"Not enough ports are available. {count} are required, {availablePorts.Count} are available.");
+        }
+        
+        _logger.LogInformation("{Count} available ports were assigned.", availablePorts.Count);
+        return availablePorts;
+    }
+
+    public void ReleasePort(int port)
+    {
+        _usedPorts.Remove(port);
+        _logger.LogInformation("{Port} was killed.", port);
     }
 }

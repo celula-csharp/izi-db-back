@@ -16,8 +16,7 @@ public static class DockerConfigurationExtensions
 {
     public static DockerConfiguration GetDockerConfiguration(this IConfiguration configuration)
     {
-        var dockerConfig = new DockerConfiguration();
-        configuration.GetSection(DockerConfiguration.SectionName).Bind(dockerConfig);
-        return dockerConfig;
+        return configuration.GetSection(DockerConfiguration.SectionName)
+            .Get<DockerConfiguration>() ?? new DockerConfiguration();
     }
 }
