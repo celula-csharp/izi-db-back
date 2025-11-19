@@ -1,0 +1,36 @@
+erDiagram
+    ROLE ||--o{ USER : "has many"
+    USER ||--|| USERINSTANCE : "has one"
+    DATABASEINSTANCE ||--o{ USERINSTANCE : "assigned to"
+
+    ROLE {
+        int Id PK
+        string Name
+        string Description
+    }
+
+    USER {
+        int Id PK
+        string Username
+        string Email
+        string PasswordHash
+        bool IsActive
+
+        datetime CreatedAt
+        int RoleId FK
+    }
+
+    DATABASEINSTANCE {
+        int Id PK
+        string Name
+        string Description
+        string ConnectionString
+        bool IsActive
+    }
+
+    USERINSTANCE {
+        int Id PK
+        int UserId FK
+        int DatabaseInstanceId FK
+        datetime AssignedAt
+    }
