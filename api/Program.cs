@@ -47,6 +47,7 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+
 // 3️⃣ Authorization by roles
 builder.Services.AddAuthorization(options =>
 {
