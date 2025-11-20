@@ -1,21 +1,43 @@
+using System.Text.Json;
 using domain.Interfaces;
+using Microsoft.Data.SqlClient;
 
 namespace infrastructure.Connections;
 
 public class SqlServerConnection : IDatabaseConnection
 {
-    public Task Open()
+    private readonly string _connectionString;
+    private SqlConnection? _connection;
+    public SqlServerConnection(string connectionString)
     {
-        throw new NotImplementedException();
+        _connectionString = connectionString;
+    }
+    public async Task Open()
+    {
+        _connection  = new SqlConnection(_connectionString);
+        await _connection.OpenAsync(); 
     }
 
-    public Task Close()
+    public async Task Close()
     {
-        throw new NotImplementedException();
+        if (_connection != null)
+            await _connection.CloseAsync(); 
     }
 
-    public Task<string> ExecuteQuery(string query)
+    public async Task<string> ExecuteQuery(string query)
     {
-        throw new NotImplementedException();
+        using var cmd = new SqlCommand(query, _connection);
+        using var reader = await cmd.ExecuteReaderAsync();
+        
+        var table = new List<Dictionary<string, object>>();
+
+        while (await reader.ReadAsync())
+        {
+            var row = new Dictionary<string, object>();
+            for (int i = 0; i < reader.FieldCount; i++)
+                row[reader.GetName(i)] = reader.GetValue(i);
+            table.Add(row);
+        }
+        return JsonSerializer.Serialize(table);
     }
 }
