@@ -1,6 +1,7 @@
 # SystemDB – Plataforma Multi-Motor de Base de Datos
 
-Este documento describe el **modelo de datos principal (SystemDB)** usado por la plataforma.  
+Este documento describe el **modelo de datos principal (SystemDB)** y su configuración en **EF Core** para la plataforma _IZI DB_.
+
 El objetivo de esta base de datos es **gestionar la identidad de los usuarios, sus roles y la asignación de instancias de base de datos**.
 
 ---
@@ -88,7 +89,7 @@ Representa la **asignación de una instancia** a un usuario (especialmente estud
 - `UserInstance N - 1 DatabaseInstance`
 - `UserInstance 1 - 1 User` (índice único en `UserId`)
 
-> Regla de negocio:  
+> 🔐 **Regla de negocio:**  
 > **Un estudiante solo puede tener 1 instancia asignada.**  
 > Esto se garantiza con un índice `UNIQUE(UserId)` en la tabla `UserInstances`.
 
@@ -129,7 +130,6 @@ erDiagram
         string Name
         string Description
         string ConnectionString
-
         bool IsActive
     }
 
@@ -139,3 +139,104 @@ erDiagram
         int DatabaseInstanceId FK
         datetime AssignedAt
     }
+3. Configuración de EF Core
+3.1. DbContext
+El contexto principal del sistema se llama SystemDbContext y vive en:
+
+infrastructure/Data/SystemDbContext.cs
+
+Este contexto expone los DbSet:
+
+csharp
+Copiar código
+public class SystemDbContext : DbContext
+{
+    public SystemDbContext(DbContextOptions<SystemDbContext> options) : base(options) { }
+
+    public DbSet<Role> Roles { get; set; } = null!;
+    public DbSet<User> Users { get; set; } = null!;
+    public DbSet<DatabaseInstance> DatabaseInstances { get; set; } = null!;
+    public DbSet<UserInstance> UserInstances { get; set; } = null!;
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // Role 1 - N User
+        modelBuilder.Entity<Role>()
+            .HasMany(r => r.Users)
+            .WithOne(u => u.Role!)
+            .HasForeignKey(u => u.RoleId);
+
+        // User 1 - 1 UserInstance (un estudiante = 1 instancia)
+        modelBuilder.Entity<User>()
+            .HasOne(u => u.UserInstance)
+            .WithOne(ui => ui.User)
+            .HasForeignKey<UserInstance>(ui => ui.UserId);
+
+        modelBuilder.Entity<UserInstance>()
+            .HasIndex(ui => ui.UserId)
+            .IsUnique();
+
+        // DatabaseInstance 1 - N UserInstance
+        modelBuilder.Entity<DatabaseInstance>()
+            .HasMany(di => di.UserInstances)
+            .WithOne(ui => ui.DatabaseInstance)
+            .HasForeignKey(ui => ui.DatabaseInstanceId);
+    }
+}
+3.2. Conexión MySQL en Program.cs (API)
+En el proyecto api, el DbContext se registra así:
+
+csharp
+Copiar código
+var connectionString = builder.Configuration.GetConnectionString("SystemDB");
+
+builder.Services.AddDbContext<SystemDbContext>(options =>
+    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString))
+);
+Cadena de conexión configurada (ejemplo):
+
+json
+Copiar código
+"ConnectionStrings": {
+  "SystemDB": "server=csharp-database-csharp.g.aivencloud.com;database=izi;port=22194;user=avnadmin;password=ABc**ddf**c"
+}
+3.3. Paquetes NuGet usados para la capa de datos
+En el proyecto infrastructure se utilizan:
+
+Microsoft.EntityFrameworkCore
+
+Microsoft.EntityFrameworkCore.Relational
+
+Pomelo.EntityFrameworkCore.MySql
+
+4. Migraciones EF Core (YA CREADAS)
+Para la base de datos SystemDB ya se creó y aplicó la migración inicial.
+
+Comandos usados:
+
+bash
+Copiar código
+# Crear migración inicial
+dotnet ef migrations add InitialSystemDbMigration -p infrastructure -s api
+
+# Aplicar migraciones a la base de datos MySQL configurada en SystemDB
+dotnet ef database update -p infrastructure -s api
+La migración genera las tablas:
+
+Roles
+
+Users
+
+DatabaseInstances
+
+UserInstances
+
+incluyendo:
+
+FK entre Users.RoleId → Roles.Id
+
+FK entre UserInstances.UserId → Users.Id (con índice único)
+
+FK entre UserInstances.DatabaseInstanceId → DatabaseInstances.Id

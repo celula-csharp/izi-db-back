@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Application.Auth.Services;
+using Infrastructure.Auth;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +14,10 @@ var connectionString = builder.Configuration.GetConnectionString("SystemDB");
 builder.Services.AddDbContext<SystemDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString))
 );
+
+// Inyectar servicios de Auth/JWT
+builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 // 2️⃣ Configurar JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "ClaveSuperSecretaParaDesarrollo123!";
