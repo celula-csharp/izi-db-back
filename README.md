@@ -235,3 +235,5 @@ Entonces **la demostración real funciona**.
 * Pruebas completas
 * Controlador demostrativo
 * Checklist y documentación
+
+---
