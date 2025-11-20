@@ -2,6 +2,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\domain\domain.csproj" />
+    <ProjectReference Include="..\infrastructure\infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Docker.DotNet" Version="3.125.15" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
   </ItemGroup>
 
   <PropertyGroup>
