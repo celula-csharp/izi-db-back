@@ -6,6 +6,9 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Application.Auth.Services;
 using Infrastructure.Auth;
+using Application.Instances.Services;
+using Infrastructure.Instances;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +21,8 @@ builder.Services.AddDbContext<SystemDbContext>(options =>
 // Inyectar servicios de Auth/JWT
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IInstanceAssignmentService, InstanceAssignmentService>();
+
 
 // 2️⃣ Configurar JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "ClaveSuperSecretaParaDesarrollo123!";
