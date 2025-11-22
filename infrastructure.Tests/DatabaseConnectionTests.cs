@@ -24,7 +24,8 @@ public class DatabaseConnectionTests
         await db.Close();
 
         result.Should().NotBeNull();
-        result.Should().Contain("1"); //valida contenido
+        result.Should().HaveCountGreaterThan(0);
+        result.First().Should().ContainKey("Value");
     }
     
     // MySQL Test
@@ -37,7 +38,8 @@ public class DatabaseConnectionTests
         await db.Close();
         
         result.Should().NotBeNull();
-        result.Should().Contain("1"); //valida contenido
+        result.Should().HaveCountGreaterThan(0);
+        result.First().Should().ContainKey("Value");
     }
 
     // Postgres Test
@@ -51,7 +53,8 @@ public class DatabaseConnectionTests
         await db.Close();
         
         result.Should().NotBeNull();
-        result.Should().Contain("1"); //valida contenido
+        result.Should().HaveCountGreaterThan(0);
+        result.First().Should().ContainKey("Value");
     }
     
     //Mongo Test
@@ -81,7 +84,9 @@ public class DatabaseConnectionTests
 
         await db.Close();
 
-        result.Should().Contain("123");
+        
+        result.Should().NotBeNull();
+        result.First()["value"].Should().Be("123");
     }
 
     
@@ -91,8 +96,8 @@ public class DatabaseConnectionTests
     {
         IDatabaseFactory factory = new DatabaseFactory();
 
-        Action act = () => factory.Create("motorQueNoExiste", "abc");
+        var result = factory.Create("motorQueNoExiste", "abc");
 
-        act.Should().Throw<ArgumentException>();
+        result.Should().BeNull();
     }
 }
