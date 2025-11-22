@@ -1,21 +1,55 @@
+using System.Text.Json;
 using domain.Interfaces;
+using Npgsql;
 
 namespace infrastructure.Connections;
 
 public class PostgresSqlConnection : IDatabaseConnection
 {
-    public Task Open()
+    private readonly string _connectionString;
+    private NpgsqlConnection? _connection;
+    
+    public PostgresSqlConnection(string connectionString)
     {
-        throw new NotImplementedException();
+        _connectionString = connectionString;
+    }
+    
+    public async Task Open()
+    {
+        _connection = new NpgsqlConnection(_connectionString);
+        await _connection.OpenAsync();
     }
 
-    public Task Close()
+    public async Task Close()
     {
-        throw new NotImplementedException();
+        if (_connection != null)
+        {
+            await _connection.CloseAsync();
+            await _connection.DisposeAsync();
+        }
     }
 
-    public Task<string> ExecuteQuery(string query)
+    public async Task<string> ExecuteQuery(string query)
     {
-        throw new NotImplementedException();
+        if (_connection == null)
+            throw new InvalidOperationException("Connection not opened.");
+
+        using var cmd = new NpgsqlCommand(query, _connection);
+        using var reader = await cmd.ExecuteReaderAsync();
+
+        var rows = new List<Dictionary<string, object>>();
+
+        while (await reader.ReadAsync())
+        {
+            var row = new Dictionary<string, object>();
+
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                row[reader.GetName(i)] = reader.GetValue(i);
+            }
+
+            rows.Add(row);
+        }
+        return JsonSerializer.Serialize(rows);
     }
 }

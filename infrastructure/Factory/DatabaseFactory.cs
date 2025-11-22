@@ -4,19 +4,19 @@ using infrastructure.Connections;
 
 namespace infrastructure.Factory;
 
-public static class DatabaseFactory
+public class DatabaseFactory : IDatabaseFactory
 {
-    public static IDatabaseConnection Create(DatabaseType type)
+    public IDatabaseConnection Create(string engine, string connectionString)
     {
-        return type switch
+        return engine.ToLower() switch
         {
-            DatabaseType.SqlServer => new SqlServerConnection(),
-            DatabaseType.MySql => new MySqlConnection(),
-            DatabaseType.PostgreSql => new PostgresSqlConnection(),
-            DatabaseType.MongoDb => new MongoDbConnection(),
-            DatabaseType.Redis => new RedisConnection(),
+            "sqlserver" => new SqlServerConnection(connectionString),
+            "mysql"     => new MySqlConnectionWrapper(connectionString),
+            "postgres"  => new PostgresSqlConnection(connectionString),
+            "mongodb"   => new MongoDbConnection(connectionString),
+            "redis"     => new RedisConnection(connectionString),
 
-            _ => throw new ArgumentException("Motor de base de datos no soportado")
+            _ => throw new ArgumentException($"Motor '{engine}' no existe en el factory.")
         };
     }
 }

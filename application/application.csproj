@@ -15,6 +15,12 @@
     <Reference Include="MongoDB.Driver">
       <HintPath>..\..\..\..\.nuget\packages\mongodb.driver\3.5.1\lib\net6.0\MongoDB.Driver.dll</HintPath>
     </Reference>
+    <ProjectReference Include="..\infrastructure\infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Docker.DotNet" Version="3.125.15" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
   </ItemGroup>
 
   <PropertyGroup>

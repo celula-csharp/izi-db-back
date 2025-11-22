@@ -1,6 +1,7 @@
 using System.Data.Common;
 using domain.Enums;
 using application.Queries.SchemaDiscovery.SchemaDto;
+using application.Dtos;
 using infrastructure.Factory;
 using MongoDB.Bson;
 using MongoDB.Driver;
