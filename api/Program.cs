@@ -6,6 +6,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Application.Auth.Services;
 using Infrastructure.Auth;
+using Application.Instances.Services;
+using Infrastructure.Instances;
 using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,9 +18,10 @@ builder.Services.AddDbContext<SystemDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString))
 );
 
-// Inyectar servicios de Auth/JWT
+// Inyectar servicios
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IInstanceAssignmentService, InstanceAssignmentService>(); // <-- Esto es de Emmanuel
 
 // 2️⃣ Configurar JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "ClaveSuperSecretaParaDesarrollo123!";
@@ -48,7 +51,6 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-
 // 3️⃣ Authorization by roles
 builder.Services.AddAuthorization(options =>
 {
@@ -56,10 +58,11 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("StudentPolicy", policy => policy.RequireRole("Student"));
 });
 
-// 4️⃣ Controllers + Swagger
+// 4️⃣ Controllers + CORS + Swagger
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
+// CORS (Vital para que React funcione)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -79,7 +82,7 @@ builder.Services.AddSwaggerGen(c =>
         Description = "Plataforma multi-motor de base de datos - Core & Auth"
     });
 
-    // JWT Bearer definition
+    // Definición de Seguridad
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -87,10 +90,9 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Ingrese el token JWT con el prefijo **Bearer**. Ejemplo: `Bearer eyJhbGci...`"
+        Description = "Ingrese el token JWT."
     });
 
-    // Security requirement
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -109,7 +111,7 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// 5️⃣ Middleware
+// 5️⃣ Middleware Pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
