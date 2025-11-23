@@ -1,4 +1,4 @@
-namespace application.Queries.SchemaDiscovery.SchemaDto;
+namespace application.Queries.SchemaDiscovery.Dtos;
 
 public class RedisKeySchemaDto
 {
