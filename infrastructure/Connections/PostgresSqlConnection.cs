@@ -29,27 +29,23 @@ public class PostgresSqlConnection : IDatabaseConnection
         }
     }
 
-    public async Task<string> ExecuteQuery(string query)
+    public async Task<List<Dictionary<string, object>>> ExecuteQuery(string query)
     {
-        if (_connection == null)
-            throw new InvalidOperationException("Connection not opened.");
-
         using var cmd = new NpgsqlCommand(query, _connection);
         using var reader = await cmd.ExecuteReaderAsync();
 
-        var rows = new List<Dictionary<string, object>>();
+        var table = new List<Dictionary<string, object>>();
 
         while (await reader.ReadAsync())
         {
             var row = new Dictionary<string, object>();
 
             for (int i = 0; i < reader.FieldCount; i++)
-            {
                 row[reader.GetName(i)] = reader.GetValue(i);
-            }
 
-            rows.Add(row);
+            table.Add(row);
         }
-        return JsonSerializer.Serialize(rows);
+
+        return table;
     }
 }

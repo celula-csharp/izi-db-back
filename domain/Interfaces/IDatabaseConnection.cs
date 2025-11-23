@@ -4,5 +4,5 @@ public interface IDatabaseConnection
 {
     Task Open();
     Task Close();
-    Task<string> ExecuteQuery(string query);
+    Task<List<Dictionary<string, object>>> ExecuteQuery(string query);
 }
