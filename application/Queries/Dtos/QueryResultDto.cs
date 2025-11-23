@@ -1,4 +1,4 @@
-namespace application.Dtos;
+namespace application.Queries.Dtos;
 
 public class QueryResultDto
 {
