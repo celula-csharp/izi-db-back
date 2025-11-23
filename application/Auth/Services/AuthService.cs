@@ -1,6 +1,6 @@
 using Application.Auth.Dtos;
 using Application.Auth.Services;
-using IziDbBack.Domain.Entities;
+using domain.Entities;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
