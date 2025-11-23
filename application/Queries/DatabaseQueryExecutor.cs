@@ -19,14 +19,13 @@ public class DatabaseQueryExecutor : IDatabaseQueryExecutor
     {
         try
         {
-            // Crear conexión usando el factory
+            // ✅ Usar el factory inyectado
             var connection = _databaseFactory.Create(engine.ToString().ToLower(), connectionString);
             
             await connection.Open();
             var result = await connection.ExecuteQuery(query);
             await connection.Close();
 
-            // Parsear el resultado JSON a objetos
             var records = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(result);
             
             return new QueryResultDto
