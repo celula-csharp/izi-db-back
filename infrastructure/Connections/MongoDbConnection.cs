@@ -18,8 +18,7 @@ public class MongoDbConnection : IDatabaseConnection
     {
         ConnectionString = connectionString;
     }
-    
-    // ✅ MANTENER tu lógica original de Open
+
     public Task Open()
     {
         _client = new MongoClient(ConnectionString);
@@ -29,26 +28,30 @@ public class MongoDbConnection : IDatabaseConnection
         return Task.CompletedTask;
     }
 
-    // ✅ MANTENER tu lógica original de Close
     public Task Close()
     {
-        // MongoDB no requiere cierre manual
-        return Task.CompletedTask;
+        return Task.CompletedTask; // Mongo no necesita cerrar
     }
 
-    // ✅ MANTENER tu lógica original de ExecuteQuery
-    public async Task<string> ExecuteQuery(string query)
+    public async Task<List<Dictionary<string, object>>> ExecuteQuery(string query)
     {
-        if (_database == null)
-            throw new InvalidOperationException("Connection not opened.");
-        
-        var json = BsonDocument.Parse(query);
-        string collectionName = json["collection"].AsString;
-        var filter = json.Contains("filter") ? json["filter"].AsBsonDocument : new BsonDocument();
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
-        var results = await collection.Find(filter).ToListAsync();
-        var mapped = results.Select(doc => doc.ToDictionary()).ToList();
-        return JsonSerializer.Serialize(mapped);
+        if (_db == null)
+            throw new Exception("MongoDB not opened.");
+
+        // Query viene así:
+        // { "collection": "users", "filter": { "age": { "$gt": 20 } } }
+
+        var doc = JsonSerializer.Deserialize<JsonElement>(query);
+
+        string collection = doc.GetProperty("collection").GetString()!;
+        var filter = doc.GetProperty("filter").GetRawText();
+
+        var bsonFilter = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<MongoDB.Bson.BsonDocument>(filter);
+        var coll = _db.GetCollection<MongoDB.Bson.BsonDocument>(collection);
+
+        var result = await coll.Find(bsonFilter).ToListAsync();
+
+        return result.Select(r => r.ToDictionary()).ToList();
     }
 
     // ✅ NUEVO método TestConnection

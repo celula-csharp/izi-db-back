@@ -16,24 +16,22 @@ public class SqlServerConnection : IDatabaseConnection
     {
         ConnectionString = connectionString;
     }
-    
-    // ✅ MANTENER tu lógica original de Open
     public async Task Open()
     {
         _connection = new SqlConnection(ConnectionString);
         await _connection.OpenAsync(); 
     }
 
-    // ✅ MANTENER tu lógica original de Close
     public async Task Close()
     {
         if (_connection != null)
             await _connection.CloseAsync(); 
     }
 
-    // ✅ MANTENER tu lógica original de ExecuteQuery
-    public async Task<string> ExecuteQuery(string query)
+    public async Task<List<Dictionary<string, object>>> ExecuteQuery(string query)
     {
+        var result = new List<Dictionary<string, object>>();
+
         if (_connection == null)
             throw new InvalidOperationException("Connection not opened.");
 
@@ -45,11 +43,17 @@ public class SqlServerConnection : IDatabaseConnection
         while (await reader.ReadAsync())
         {
             var row = new Dictionary<string, object>();
+
             for (int i = 0; i < reader.FieldCount; i++)
-                row[reader.GetName(i)] = reader.GetValue(i);
-            table.Add(row);
+            {
+                var value = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                row[reader.GetName(i)] = value;
+            }
+
+            result.Add(row);
         }
-        return JsonSerializer.Serialize(table);
+
+        return result;
     }
 
     // ✅ NUEVO método TestConnection

@@ -35,34 +35,24 @@ public class MySqlConnectionWrapper : IDatabaseConnection
         }
     }
 
-    public async Task<string> ExecuteQuery(string query)
+    public async Task<List<Dictionary<string, object>>> ExecuteQuery(string query)
     {
-        if (_connection == null)
-            throw new InvalidOperationException("Connection not opened.");
+        using var cmd = new MySqlCommand(query, _connection);
+        using var reader = await cmd.ExecuteReaderAsync();
 
-        try
+        var table = new List<Dictionary<string, object>>();
+
+        while (await reader.ReadAsync())
         {
-            using var cmd = new MySqlCommand(query, _connection);
-            using var reader = await cmd.ExecuteReaderAsync();
+            var row = new Dictionary<string, object>();
 
-            var table = new List<Dictionary<string, object>>();
+            for (int i = 0; i < reader.FieldCount; i++)
+                row[reader.GetName(i)] = reader.GetValue(i);
 
-            while (await reader.ReadAsync())
-            {
-                var row = new Dictionary<string, object>();
-
-                for (int i = 0; i < reader.FieldCount; i++)
-                    row[reader.GetName(i)] = reader.GetValue(i);
-
-                table.Add(row);
-            }
-            
-            return JsonSerializer.Serialize(table);
+            table.Add(row);
         }
-        catch (Exception e)
-        {
-            throw new Exception($"MySQL query failed: {e.Message}");
-        }
+
+        return table;
     }
 
     public async Task<bool> TestConnection()
