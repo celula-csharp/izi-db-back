@@ -1,5 +1,5 @@
 using infrastructure;
-
+using application;
 using System.Text;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -20,6 +20,11 @@ builder.Services.AddDbContext<SystemDbContext>(options =>
 // Inyectar servicios de Auth/JWT
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+
+builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddApplication();
+
+builder.Services.AddControllers();
 
 // 2️⃣ Configurar JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "ClaveSuperSecretaParaDesarrollo123!";
