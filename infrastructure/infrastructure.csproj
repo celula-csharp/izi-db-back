@@ -2,7 +2,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\domain\domain.csproj" />
-    <ProjectReference Include="..\application\application.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,8 +19,6 @@
     <PackageReference Include="MySql.Data" Version="9.5.0" />
     <PackageReference Include="Npgsql" Version="9.0.4" />
     <PackageReference Include="StackExchange.Redis" Version="2.10.1" />
-    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="6.6.2" />
-    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.0.1" />
   </ItemGroup>
 
   <PropertyGroup>

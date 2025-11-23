@@ -1,5 +1,4 @@
 using infrastructure;
-
 using System.Text;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -8,17 +7,15 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Application.Auth.Services;
 using Infrastructure.Auth;
-
 using api.Swagger;
 using application.Services;
 using domain.Interfaces;
 using infrastructure.Factory;
-using Microsoft.OpenApi.Models;
 using AppPermissionService = application.Interfaces.IPermissionService;
 
 var builder = WebApplication.CreateBuilder(args);
 
-//DEPENDENCIAS
+// DEPENDENCIAS
 
 // Factory de motores
 builder.Services.AddSingleton<IDatabaseFactory, DatabaseFactory>();
@@ -30,6 +27,7 @@ builder.Services.AddScoped<ISchemaService, SchemaService>();
 builder.Services.AddScoped<AppPermissionService, PermissionService>();
 
 builder.Services.AddEndpointsApiExplorer();
+
 // 1️⃣ Configurar DbContext MySQL
 var connectionString = builder.Configuration.GetConnectionString("SystemDB");
 builder.Services.AddDbContext<SystemDbContext>(options =>
@@ -40,82 +38,18 @@ builder.Services.AddDbContext<SystemDbContext>(options =>
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
-//SWAGGER
+// SWAGGER CONFIGURATION (SINGLE CONFIGURATION)
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "IZI Database API", Version = "v1" });
-    c.DocumentFilter<RoleBasedDocumentFilter>();
-
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Description = "Token simulado. EJ: Bearer admin",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey
-    });
-
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Id = "Bearer",
-                    Type = ReferenceType.SecurityScheme
-                }
-            },
-            Array.Empty<string>()
-        }
-    });
-});
-// 2️⃣ Configurar JWT Authentication
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "ClaveSuperSecretaParaDesarrollo123!";
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "izi-db-api";
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "izi-db-clients";
-var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
-
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.RequireHttpsMetadata = false;
-    options.SaveToken = true;
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtIssuer,
-        ValidAudience = jwtAudience,
-        IssuerSigningKey = signingKey,
-        ClockSkew = TimeSpan.Zero
-    };
-});
-
-
-// 3️⃣ Authorization by roles
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("AdminPolicy", policy => policy.RequireRole("Admin"));
-    options.AddPolicy("StudentPolicy", policy => policy.RequireRole("Student"));
-});
-
-// 4️⃣ Controllers + Swagger
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "IZI DB API",
+    c.SwaggerDoc("v1", new OpenApiInfo 
+    { 
+        Title = "IZI DB API", 
         Version = "v1",
-        Description = "Plataforma multi-motor de base de datos - Core & Auth"
+        Description = "Plataforma multi-motor de base de datos - Core & Auth" 
     });
+    
+    // Custom document filter
+    c.DocumentFilter<RoleBasedDocumentFilter>();
 
     // JWT Bearer definition
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -145,6 +79,44 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// 2️⃣ Configurar JWT Authentication
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "ClaveSuperSecretaParaDesarrollo123!";
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "izi-db-api";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "izi-db-clients";
+var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtAudience,
+        IssuerSigningKey = signingKey,
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
+// 3️⃣ Authorization by roles
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminPolicy", policy => policy.RequireRole("Admin"));
+    options.AddPolicy("StudentPolicy", policy => policy.RequireRole("Student"));
+});
+
+// 4️⃣ Controllers
+builder.Services.AddControllers();
+
 builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
@@ -153,12 +125,10 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
-    app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "IZI DB API v1");
-        c.RoutePrefix = string.Empty;
+        c.RoutePrefix = string.Empty; // Serve Swagger UI at the app's root
     });
 }
 
@@ -178,7 +148,7 @@ app.Use(async (context, next) =>
     await next();
 });
 
-//ENDPOINTS
+// ENDPOINTS
 
 // Listado de motores
 app.MapGet("/api/motores", () =>
@@ -186,7 +156,7 @@ app.MapGet("/api/motores", () =>
     return new[] { "sqlserver", "mysql", "postgresql", "mongodb", "redis" };
 })
 .WithTags("Motores")
-.RequireAuthorization("admin");
+.RequireAuthorization("AdminPolicy");
 
 // Ejecutar consultas
 app.MapPost("/api/query", async (
@@ -227,6 +197,7 @@ app.MapPost("/api/query", async (
     }
 })
 .WithTags("Consultas");
+
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -240,14 +211,13 @@ app.MapPost("/api/config", (object config) =>
     return Results.Ok(config);
 })
 .WithTags("Configuraciones")
-.RequireAuthorization("admin");
+.RequireAuthorization("AdminPolicy");
 
 app.MapGet("/api/config", () => configs)
     .WithTags("Configuraciones")
-    .RequireAuthorization("admin");
+    .RequireAuthorization("AdminPolicy");
 
-//ENDPOINT DE SCHEMA
-
+// ENDPOINT DE SCHEMA
 app.MapGet("/api/schema", async (
     string engine,
     string connectionString,
@@ -260,6 +230,6 @@ app.MapGet("/api/schema", async (
         : Results.Ok(result);
 })
 .WithTags("Schema")
-.RequireAuthorization("admin");
+.RequireAuthorization("AdminPolicy");
 
 app.Run();
