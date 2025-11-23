@@ -1,4 +1,5 @@
 using System.Text.Json;
+using domain.Enums;
 using domain.Interfaces;
 using Npgsql;
 
@@ -6,20 +7,24 @@ namespace infrastructure.Connections;
 
 public class PostgresSqlConnection : IDatabaseConnection
 {
-    private readonly string _connectionString;
+    public string ConnectionString { get; set; }
+    public DatabaseType DatabaseType => DatabaseType.PostgreSql;
+
     private NpgsqlConnection? _connection;
     
     public PostgresSqlConnection(string connectionString)
     {
-        _connectionString = connectionString;
+        ConnectionString = connectionString;
     }
     
+    // ✅ MANTENER tu lógica original de Open
     public async Task Open()
     {
-        _connection = new NpgsqlConnection(_connectionString);
+        _connection = new NpgsqlConnection(ConnectionString);
         await _connection.OpenAsync();
     }
 
+    // ✅ MANTENER tu lógica original de Close
     public async Task Close()
     {
         if (_connection != null)
@@ -29,6 +34,7 @@ public class PostgresSqlConnection : IDatabaseConnection
         }
     }
 
+    // ✅ MANTENER tu lógica original de ExecuteQuery
     public async Task<string> ExecuteQuery(string query)
     {
         if (_connection == null)
@@ -51,5 +57,45 @@ public class PostgresSqlConnection : IDatabaseConnection
             rows.Add(row);
         }
         return JsonSerializer.Serialize(rows);
+    }
+
+    // ✅ NUEVO método TestConnection
+    public async Task<bool> TestConnection()
+    {
+        try
+        {
+            await Open();
+            await Close();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // ✅ NUEVO método GetSchemaAsync
+    public async Task<object> GetSchemaAsync()
+    {
+        if (_connection == null)
+            throw new InvalidOperationException("Connection not opened.");
+
+        var tables = new List<object>();
+        
+        using var cmd = new NpgsqlCommand(
+            "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = 'public'", 
+            _connection);
+        using var reader = await cmd.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            tables.Add(new
+            {
+                Name = reader.GetString(0),
+                Type = reader.GetString(1)
+            });
+        }
+
+        return new { Tables = tables };
     }
 }
