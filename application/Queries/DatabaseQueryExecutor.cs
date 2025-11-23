@@ -1,38 +1,64 @@
-using application.Dtos;
+using application.Queries.Dtos;
+using application.Queries.Interfaces;
 using domain.Enums;
-using domain.Interfaces;    
+using domain.Interfaces;
 using infrastructure.Factory;
 
 namespace application.Queries;
 
 public class DatabaseQueryExecutor : IDatabaseQueryExecutor
 {
-    private readonly UniversalSqlExecutor _universalExecutor; // ejecutor temporal
+    private readonly IDatabaseFactory _databaseFactory;
 
-    public DatabaseQueryExecutor(
-        UniversalSqlExecutor universalExecutor
-    )
+    public DatabaseQueryExecutor(IDatabaseFactory databaseFactory)
     {
-        _universalExecutor = universalExecutor;
+        _databaseFactory = databaseFactory;
     }
 
-    public async Task<QueryResultDto> ExecuteQueryAsync(DatabaseType engine, string query, string instanceId)
+    public async Task<QueryResultDto> ExecuteQueryAsync(DatabaseType engine, string query, string connectionString)
     {
         try
         {
-            // Usa el factory actual (que devuelve IDatabaseConnection)
-            IDatabaseConnection connection = DatabaseFactory.Create(engine);
+            // Crear conexión usando el factory
+            var connection = _databaseFactory.Create(engine.ToString().ToLower(), connectionString);
+            
+            await connection.Open();
+            var result = await connection.ExecuteQuery(query);
+            await connection.Close();
 
-            // Mientras las conexiones reales NO existen, solo el universal puede ejecutarlas
-            return await _universalExecutor.ExecuteAsync(connection, query);
+            // Parsear el resultado JSON a objetos
+            var records = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(result);
+            
+            return new QueryResultDto
+            {
+                Success = true,
+                Records = records ?? new List<Dictionary<string, object>>()
+            };
         }
         catch (Exception ex)
         {
             return new QueryResultDto
             {
                 Success = false,
-                Error = ex.Message
+                Error = $"Error executing query: {ex.Message}"
             };
+        }
+    }
+
+    public async Task<object> GetSchemaAsync(DatabaseType engine, string connectionString)
+    {
+        try
+        {
+            var connection = _databaseFactory.Create(engine.ToString().ToLower(), connectionString);
+            await connection.Open();
+            var schema = await connection.GetSchemaAsync();
+            await connection.Close();
+            
+            return schema;
+        }
+        catch (Exception ex)
+        {
+            return new { Error = $"Error getting schema: {ex.Message}" };
         }
     }
 }
