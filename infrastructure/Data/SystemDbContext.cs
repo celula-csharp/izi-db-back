@@ -1,4 +1,4 @@
-using IziDbBack.Domain.Entities;
+using domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Data
