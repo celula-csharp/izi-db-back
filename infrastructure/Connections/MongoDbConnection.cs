@@ -1,4 +1,5 @@
 using System.Text.Json;
+using domain.Enums;
 using domain.Interfaces;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -7,57 +8,82 @@ namespace infrastructure.Connections;
 
 public class MongoDbConnection : IDatabaseConnection
 {
-    private readonly string _connectionString;
+    public string ConnectionString { get; set; }
+    public DatabaseType DatabaseType => DatabaseType.MongoDb;
+
     private IMongoClient? _client;
     private IMongoDatabase? _database;
     
     public MongoDbConnection(string connectionString)
     {
-        _connectionString = connectionString;
+        ConnectionString = connectionString;
     }
-    
+
     public Task Open()
     {
-        _client = new MongoClient(_connectionString);
-        
-        // seleccionar la base desde la connection string
-        var mongoUrl = new MongoUrl(_connectionString);
-        
+        _client = new MongoClient(ConnectionString);
+        var mongoUrl = new MongoUrl(ConnectionString);
         string dbName = string.IsNullOrEmpty(mongoUrl.DatabaseName) ? "test" : mongoUrl.DatabaseName;
-        
         _database = _client.GetDatabase(dbName);
-
         return Task.CompletedTask;
     }
 
     public Task Close()
     {
-        //Mongo no usa Close. No se cierra manualmente.
-        return Task.CompletedTask;
+        return Task.CompletedTask; // Mongo no necesita cerrar
     }
 
-    public async Task<string> ExecuteQuery(string query)
+    public async Task<List<Dictionary<string, object>>> ExecuteQuery(string query)
+    {
+        if (_db == null)
+            throw new Exception("MongoDB not opened.");
+
+        // Query viene así:
+        // { "collection": "users", "filter": { "age": { "$gt": 20 } } }
+
+        var doc = JsonSerializer.Deserialize<JsonElement>(query);
+
+        string collection = doc.GetProperty("collection").GetString()!;
+        var filter = doc.GetProperty("filter").GetRawText();
+
+        var bsonFilter = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<MongoDB.Bson.BsonDocument>(filter);
+        var coll = _db.GetCollection<MongoDB.Bson.BsonDocument>(collection);
+
+        var result = await coll.Find(bsonFilter).ToListAsync();
+
+        return result.Select(r => r.ToDictionary()).ToList();
+    }
+
+    // ✅ NUEVO método TestConnection
+    public async Task<bool> TestConnection()
+    {
+        try
+        {
+            await Open();
+            await _database!.ListCollectionNamesAsync();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // ✅ NUEVO método GetSchemaAsync
+    public async Task<object> GetSchemaAsync()
     {
         if (_database == null)
             throw new InvalidOperationException("Connection not opened.");
-        
-        //parsear JSON a BSON
-        var json = BsonDocument.Parse(query);
 
-        //leer la coleccion
-        string collectionName = json["collection"].AsString;
-        
-        // leer filtro si existe
-        var filter = json.Contains("filter") ? json["filter"].AsBsonDocument : new BsonDocument();
+        var collections = new List<object>();
+        var collectionsCursor = await _database.ListCollectionNamesAsync();
+        var collectionNames = await collectionsCursor.ToListAsync();
 
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        foreach (var name in collectionNames)
+        {
+            collections.Add(new { Name = name });
+        }
 
-        var results = await collection.Find(filter).ToListAsync();
-        
-        //convertir cada documento BSON a diccionario plano
-        var mapped = results.Select(doc => doc.ToDictionary()).ToList();
-
-        // serializar a JSON como el resto de motores
-        return JsonSerializer.Serialize(mapped);
+        return new { Collections = collections };
     }
 }

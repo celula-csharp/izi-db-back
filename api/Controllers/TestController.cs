@@ -13,13 +13,11 @@ public class TestController : ControllerBase
     private readonly IConfiguration _config;
     private readonly IDatabaseFactory _factory;
     
-    public TestController(IConfiguration config)
+    public TestController(IConfiguration config, IDatabaseFactory factory)
     {
         _config = config;
-        _factory = new DatabaseFactory();
-        
+        _factory = factory; // ✅ Ya no se crea con new
     }
-    
     //sql server
     [HttpGet("sql")]
     public async Task<IActionResult> TestSqlSerer()

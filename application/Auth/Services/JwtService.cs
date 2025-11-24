@@ -1,8 +1,8 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Application.Auth.Services;      // 👈 OJO, bien escrito
-using IziDbBack.Domain.Entities;
+using Application.Auth.Services;
+using domain.Entities; // 👈 OJO, bien escrito
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 

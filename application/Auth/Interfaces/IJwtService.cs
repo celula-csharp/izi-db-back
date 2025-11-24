@@ -1,4 +1,4 @@
-using IziDbBack.Domain.Entities;
+using domain.Entities;
 
 namespace Application.Auth.Services
 {

@@ -1,4 +1,3 @@
-using domain.Enums;
 using domain.Interfaces;
 using infrastructure.Connections;
 
@@ -8,6 +7,9 @@ public class DatabaseFactory : IDatabaseFactory
 {
     public IDatabaseConnection Create(string engine, string connectionString)
     {
+        if (string.IsNullOrWhiteSpace(engine))
+            return null;
+        
         return engine.ToLower() switch
         {
             "sqlserver" => new SqlServerConnection(connectionString),
@@ -16,7 +18,7 @@ public class DatabaseFactory : IDatabaseFactory
             "mongodb"   => new MongoDbConnection(connectionString),
             "redis"     => new RedisConnection(connectionString),
 
-            _ => throw new ArgumentException($"Motor '{engine}' no existe en el factory.")
+            _ => null
         };
     }
 }
