@@ -1,16 +1,15 @@
-namespace IziDbBack.Domain.Entities
+namespace domain.Entities;
+
+public class DatabaseInstance
 {
-    public class DatabaseInstance
-    {
-        public int Id { get; set; }
+    public int Id { get; set; }
 
-        public string Name { get; set; } = null!;
-        public string? Description { get; set; }
+    public string Name { get; set; } = null!;
+    public string? Description { get; set; }
 
-        public string? ConnectionString { get; set; }
+    public string? ConnectionString { get; set; }
 
-        public bool IsActive { get; set; } = true;
+    public bool IsActive { get; set; } = true;
 
-        public ICollection<UserInstance> UserInstances { get; set; } = new List<UserInstance>();
-    }
+    public ICollection<UserInstance> UserInstances { get; set; } = new List<UserInstance>();
 }
