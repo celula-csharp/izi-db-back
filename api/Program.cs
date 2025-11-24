@@ -14,12 +14,11 @@ using domain.Interfaces;
 using infrastructure.Factory;
 using AppPermissionService = application.Interfaces.IPermissionService;
 using Application.Instances.Services;
-using Infrastructure.Instances;
-using Microsoft.OpenApi;
+using InstanceAssignmentService = application.Instances.InstanceAssignmentService;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// DEPENDENCIAS
+// DEPENDENCIES
 
 // Factory de motores
 builder.Services.AddSingleton<IDatabaseFactory, DatabaseFactory>();
@@ -33,7 +32,7 @@ builder.Services.AddScoped<AppPermissionService, PermissionService>();
 builder.Services.AddEndpointsApiExplorer();
 
 // 1️⃣ Configurar DbContext MySQL
-var connectionString = builder.Configuration.GetConnectionString("SystemDB");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<SystemDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString))
 );
@@ -41,7 +40,7 @@ builder.Services.AddDbContext<SystemDbContext>(options =>
 // Inyectar servicios
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IInstanceAssignmentService, InstanceAssignmentService>(); // <-- Esto es de Emmanuel
+builder.Services.AddScoped<IInstanceAssignmentService, InstanceAssignmentService>();
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplication();
@@ -117,17 +116,12 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-
 // 3️⃣ Authorization by roles
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminPolicy", policy => policy.RequireRole("Admin"));
     options.AddPolicy("StudentPolicy", policy => policy.RequireRole("Student"));
 });
-
-// 4️⃣ Controllers + CORS + Swagger
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
 
 // CORS (Vital para que React funcione)
 builder.Services.AddCors(options =>
@@ -137,43 +131,6 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin()
             .AllowAnyMethod()
             .AllowAnyHeader();
-    });
-});
-
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "IZI DB API",
-        Version = "v1",
-        Description = "Plataforma multi-motor de base de datos - Core & Auth"
-    });
-
-builder.Services.AddInfrastructure(builder.Configuration);
-    // Definición de Seguridad
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT",
-        In = ParameterLocation.Header,
-        Description = "Ingrese el token JWT."
-    });
-
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new List<string>()
-        }
     });
 });
 
@@ -206,6 +163,12 @@ app.Use(async (context, next) =>
     await next();
 });
 
+app.MapControllers();
+app.UseHttpsRedirection();
+app.UseCors("AllowAll");
+app.UseAuthentication();
+app.UseAuthorization();
+
 // ENDPOINTS
 
 // Listado de motores
@@ -237,6 +200,7 @@ app.MapPost("/api/query", async (
         if (connectionString.Trim() != allowedConnection.Trim())
             return Results.Forbid();
     }
+    
     var db = factory.Create(engine, connectionString);
 
     if (db == null)
@@ -255,11 +219,6 @@ app.MapPost("/api/query", async (
     }
 })
 .WithTags("Consultas");
-
-app.UseHttpsRedirection();
-app.UseCors("AllowAll");
-app.UseAuthentication();
-app.UseAuthorization();
 
 // Configs internas (demo)
 var configs = new List<object>();
@@ -282,11 +241,15 @@ app.MapGet("/api/schema", async (
     string connectionString,
     ISchemaService schemaService) =>
 {
-    var result = await schemaService.GetSchemaAsync(engine, connectionString);
-
-    return result == null
-        ? Results.BadRequest("Motor no soportado o no tiene schema.")
-        : Results.Ok(result);
+    try
+    {
+        var result = await schemaService.GetSchemaAsync(engine, connectionString);
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest($"Error al obtener schema: {ex.Message}");
+    }
 })
 .WithTags("Schema")
 .RequireAuthorization("AdminPolicy");
