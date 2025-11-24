@@ -1,107 +1,107 @@
-# SystemDB – Plataforma Multi-Motor de Base de Datos
+# SystemDB – Multi-Engine Database Platform
 
-Este documento describe el **modelo de datos principal (SystemDB)** y su configuración en **EF Core** para la plataforma _IZI DB_.
-
-El objetivo de esta base de datos es **gestionar la identidad de los usuarios, sus roles y la asignación de instancias de base de datos**.
+This document describes the **main data model (SystemDB)** used by the platform.  
+The goal of this database is to **manage user identity, roles, and database instance assignments**.
 
 ---
 
-## 1. Entidades del Dominio
+## 1. Domain Entities
 
 ### 1.1. Role
 
-Representa el rol que puede tener un usuario en el sistema (por ejemplo: `Admin`, `Student`).
+Represents the role a user can have in the system (for example: `Admin`, `Student`).
 
-**Tabla:** `Roles`
+**Table:** `Roles`
 
-**Campos:**
+**Fields:**
 
 - `Id` (int, PK)
-- `Name` (string, requerido, único, máx. 50)
-- `Description` (string, opcional)
+- `Name` (string, required, unique, max 50)
+- `Description` (string, optional)
 
-**Relaciones:**
+**Relationships:**
 
 - `Role 1 - N User`  
-  Un rol puede estar asignado a muchos usuarios.
+  One role can be assigned to many users.
 
 ---
 
 ### 1.2. User
 
-Representa a un usuario autenticable dentro de la plataforma.
+Represents an authenticable user in the platform.
 
-**Tabla:** `Users`
+**Table:** `Users`
 
-**Campos:**
+**Fields:**
 
 - `Id` (int, PK)
-- `Username` (string, requerido, único, máx. 100)
-- `Email` (string, requerido, único, máx. 150)
-- `PasswordHash` (string, requerido)
-- `IsActive` (bool, por defecto `true`)
-- `CreatedAt` (datetime, por defecto `UtcNow`)
-- `RoleId` (int, FK a `Roles.Id`)
+- `Username` (string, required, unique, max 100)
+- `Email` (string, required, unique, max 150)
+- `PasswordHash` (string, required)
+- `IsActive` (bool, default `true`)
+- `CreatedAt` (datetime, default `UtcNow`)
+- `RoleId` (int, FK to `Roles.Id`)
 
-**Relaciones:**
+**Relationships:**
 
 - `User N - 1 Role`
 - `User 1 - 1 UserInstance`  
-  Un usuario puede tener como máximo **una instancia asignada**.
+  A user (especially with `Student` role) can have at most **one assigned instance**.
 
 ---
 
 ### 1.3. DatabaseInstance
 
-Representa una instancia de base de datos disponible en la plataforma (MySQL, PostgreSQL, etc).
+Represents a database engine instance available in the platform (MySQL, PostgreSQL, etc).
 
-**Tabla:** `DatabaseInstances`
+**Table:** `DatabaseInstances`
 
-**Campos:**
+**Fields:**
 
 - `Id` (int, PK)
-- `Name` (string, requerido, máx. 100)
-- `Description` (string, opcional, máx. 250)
-- `ConnectionString` (string, opcional, máx. 500)
-- `IsActive` (bool, por defecto `true`)
+- `Name` (string, required, max 100)
+- `Description` (string, optional, max 250)
+- `ConnectionString` (string, optional, max 500)
+- `IsActive` (bool, default `true`)
 
-**Relaciones:**
+**Relationships:**
 
-- `DatabaseInstance 1 - N UserInstance`
+- `DatabaseInstance 1 - N UserInstance`  
+  A single instance can be assigned to multiple students (depending on system rules).
 
 ---
 
 ### 1.4. UserInstance
 
-Representa la **asignación de una instancia** a un usuario (especialmente estudiantes).
+Represents the **assignment of a database instance** to a user (typically students).
 
-**Tabla:** `UserInstances`
+**Table:** `UserInstances`
 
-**Campos:**
+**Fields:**
 
 - `Id` (int, PK)
-- `UserId` (int, FK a `Users.Id`)
-- `DatabaseInstanceId` (int, FK a `DatabaseInstances.Id`)
-- `AssignedAt` (datetime, por defecto `UtcNow`)
+- `UserId` (int, FK to `Users.Id`)
+- `DatabaseInstanceId` (int, FK to `DatabaseInstances.Id`)
+- `AssignedAt` (datetime, default `UtcNow`)
 
-**Relaciones:**
+**Relationships:**
 
 - `UserInstance N - 1 DatabaseInstance`
-- `UserInstance 1 - 1 User` (índice único en `UserId`)
+- `UserInstance 1 - 1 User` (unique index on `UserId`)
 
-> 🔐 **Regla de negocio:**  
-> **Un estudiante solo puede tener 1 instancia asignada.**  
-> Esto se garantiza con un índice `UNIQUE(UserId)` en la tabla `UserInstances`.
+> Business rule:  
+> **A student can only have 1 instance assigned.**  
+> This is enforced at business logic level and/or with a `UNIQUE(UserId)` index on the `UserInstances` table.
 
 ---
 
-## 2. Diagrama ER (Mermaid)
+## 2. ER Diagram (Mermaid)
 
-El diagrama ER está documentado en:
+The ER diagram is documented in:
 
 - `docs/diagrams/systemdb.mmd`
 
-Diagrama en Mermaid:
+Mermaid diagram:
 
 ```mermaid
 erDiagram
@@ -139,104 +139,108 @@ erDiagram
         int DatabaseInstanceId FK
         datetime AssignedAt
     }
-3. Configuración de EF Core
-3.1. DbContext
-El contexto principal del sistema se llama SystemDbContext y vive en:
 
-infrastructure/Data/SystemDbContext.cs
+3. SystemDbContext Configuration (technical summary)
 
-Este contexto expone los DbSet:
+    Project: infrastructure
+    File: Infrastructure/Data/SystemDbContext.cs
 
-csharp
-Copiar código
-public class SystemDbContext : DbContext
-{
-    public SystemDbContext(DbContextOptions<SystemDbContext> options) : base(options) { }
+    The DbContext is configured with the following entities:
 
-    public DbSet<Role> Roles { get; set; } = null!;
-    public DbSet<User> Users { get; set; } = null!;
-    public DbSet<DatabaseInstance> DatabaseInstances { get; set; } = null!;
-    public DbSet<UserInstance> UserInstances { get; set; } = null!;
+        DbSet<User>
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        base.OnModelCreating(modelBuilder);
+        DbSet<Role>
 
-        // Role 1 - N User
-        modelBuilder.Entity<Role>()
-            .HasMany(r => r.Users)
-            .WithOne(u => u.Role!)
-            .HasForeignKey(u => u.RoleId);
+        DbSet<DatabaseInstance>
 
-        // User 1 - 1 UserInstance (un estudiante = 1 instancia)
-        modelBuilder.Entity<User>()
-            .HasOne(u => u.UserInstance)
-            .WithOne(ui => ui.User)
-            .HasForeignKey<UserInstance>(ui => ui.UserId);
+        DbSet<UserInstance>
 
-        modelBuilder.Entity<UserInstance>()
-            .HasIndex(ui => ui.UserId)
-            .IsUnique();
+    Relationships are defined using Fluent API.
 
-        // DatabaseInstance 1 - N UserInstance
-        modelBuilder.Entity<DatabaseInstance>()
-            .HasMany(di => di.UserInstances)
-            .WithOne(ui => ui.DatabaseInstance)
-            .HasForeignKey(ui => ui.DatabaseInstanceId);
-    }
+    A unique constraint on UserInstance.UserId can be added to enforce the “1 student = 1 instance” rule.
+
+Conceptual example:
+
+modelBuilder.Entity<User>()
+    .HasOne(u => u.Role)
+    .WithMany(r => r.Users)
+    .HasForeignKey(u => u.RoleId);
+
+modelBuilder.Entity<UserInstance>()
+    .HasOne(ui => ui.User)
+    .WithOne(u => u.UserInstance)
+    .HasForeignKey<UserInstance>(ui => ui.UserId);
+
+modelBuilder.Entity<UserInstance>()
+    .HasOne(ui => ui.DatabaseInstance)
+    .WithMany(di => di.UserInstances)
+    .HasForeignKey(ui => ui.DatabaseInstanceId);
+
+4. Migrations and Physical Database
+
+    Note: This is executed by the team using EF Core and SystemDbContext.
+
+General steps:
+
+    Create the initial migration:
+
+dotnet ef migrations add InitialSystemDbMigration -p infrastructure -s api
+
+Apply the migration to the MySQL database:
+
+    dotnet ef database update -p infrastructure -s api
+
+    Verify in MySQL that these tables were created:
+
+        Roles
+
+        Users
+
+        DatabaseInstances
+
+        UserInstances
+
+5. MySQL Connection
+
+Example configuration (in appsettings.json or appsettings.Development.json):
+
+"ConnectionStrings": {
+  server=csharp-database-csharp.g.aivencloud.com;database=webEscuela_db;port=22194;user=avnadmin;password=AVNS_Us7LpZpO9OxWMsZo0w0
 }
-3.2. Conexión MySQL en Program.cs (API)
-En el proyecto api, el DbContext se registra así:
 
-csharp
-Copiar código
+And in Program.cs:
+
 var connectionString = builder.Configuration.GetConnectionString("SystemDB");
 
 builder.Services.AddDbContext<SystemDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString))
 );
-Cadena de conexión configurada (ejemplo):
 
-json
-Copiar código
-"ConnectionStrings": {
-  "SystemDB": "server=csharp-database-csharp.g.aivencloud.com;database=izi;port=22194;user=avnadmin;password=ABc**ddf**c"
-}
-3.3. Paquetes NuGet usados para la capa de datos
-En el proyecto infrastructure se utilizan:
+6. Team & Responsibilities
+Emmanuel – Core & Domain Model
 
-Microsoft.EntityFrameworkCore
+    Designed the domain model:
 
-Microsoft.EntityFrameworkCore.Relational
+        Entities User, Role, DatabaseInstance, UserInstance.
 
-Pomelo.EntityFrameworkCore.MySql
+        Relations and business rules.
 
-4. Migraciones EF Core (YA CREADAS)
-Para la base de datos SystemDB ya se creó y aplicó la migración inicial.
+    Configured SystemDbContext (1:N and 1:1 relationships).
 
-Comandos usados:
+    Documented:
 
-bash
-Copiar código
-# Crear migración inicial
-dotnet ef migrations add InitialSystemDbMigration -p infrastructure -s api
+        Table and field structure.
 
-# Aplicar migraciones a la base de datos MySQL configurada en SystemDB
-dotnet ef database update -p infrastructure -s api
-La migración genera las tablas:
+        ER diagram in Mermaid (docs/diagrams/systemdb.mmd).
 
-Roles
+        Business rule: “1 student = 1 instance”.
 
-Users
+Daniel – Migrations & Physical Database
 
-DatabaseInstances
+    Created Entity Framework Core migrations.
 
-UserInstances
+    Applied migrations to the MySQL database (SystemDB).
 
-incluyendo:
+    Verified the final schema in MySQL.
 
-FK entre Users.RoleId → Roles.Id
-
-FK entre UserInstances.UserId → Users.Id (con índice único)
-
-FK entre UserInstances.DatabaseInstanceId → DatabaseInstances.Id
+    Adjusted indexes, constraints, and performed initial connection tests.

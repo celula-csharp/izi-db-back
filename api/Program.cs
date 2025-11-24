@@ -13,6 +13,9 @@ using application.Services;
 using domain.Interfaces;
 using infrastructure.Factory;
 using AppPermissionService = application.Interfaces.IPermissionService;
+using Application.Instances.Services;
+using Infrastructure.Instances;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,9 +38,10 @@ builder.Services.AddDbContext<SystemDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString))
 );
 
-// Inyectar servicios de Auth/JWT
+// Inyectar servicios
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IInstanceAssignmentService, InstanceAssignmentService>(); // <-- Esto es de Emmanuel
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplication();
@@ -113,6 +117,7 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+
 // 3️⃣ Authorization by roles
 builder.Services.AddAuthorization(options =>
 {
@@ -120,14 +125,61 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("StudentPolicy", policy => policy.RequireRole("Student"));
 });
 
-// 4️⃣ Controllers
+// 4️⃣ Controllers + CORS + Swagger
 builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+
+// CORS (Vital para que React funcione)
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader();
+    });
+});
+
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "IZI DB API",
+        Version = "v1",
+        Description = "Plataforma multi-motor de base de datos - Core & Auth"
+    });
 
 builder.Services.AddInfrastructure(builder.Configuration);
+    // Definición de Seguridad
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Ingrese el token JWT."
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new List<string>()
+        }
+    });
+});
 
 var app = builder.Build();
 
-// 5️⃣ Middleware
+// 5️⃣ Middleware Pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -205,6 +257,7 @@ app.MapPost("/api/query", async (
 .WithTags("Consultas");
 
 app.UseHttpsRedirection();
+app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 

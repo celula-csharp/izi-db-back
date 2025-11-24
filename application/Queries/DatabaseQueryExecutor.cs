@@ -26,16 +26,12 @@ public class DatabaseQueryExecutor : IDatabaseQueryExecutor
             var result = await connection.ExecuteQuery(query);
             await connection.Close();
 
-            if (result != null)
+            // Eliminar la deserialización ya que result ya es List<Dictionary<string, object>>
+            return new QueryResultDto
             {
-                var records = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object>>>(result);
-            
-                return new QueryResultDto
-                {
-                    Success = true,
-                    Records = records ?? new List<Dictionary<string, object>>()
-                };
-            }
+                Success = true,
+                Records = result ?? new List<Dictionary<string, object>>()
+            };
         }
         catch (Exception ex)
         {
