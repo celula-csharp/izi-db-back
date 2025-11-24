@@ -3,6 +3,7 @@ using Application.Auth.Services;
 using domain.Entities;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Auth
 {

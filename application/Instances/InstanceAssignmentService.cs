@@ -1,9 +1,9 @@
 using Application.Instances.Services;
-using IziDbBack.Domain.Entities;
+using domain.Entities;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
-namespace Infrastructure.Instances;
+namespace application.Instances;
 
 public class InstanceAssignmentService : IInstanceAssignmentService
 {
