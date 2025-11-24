@@ -2,8 +2,8 @@ using application.DTOs;
 using application.Interfaces;
 using domain.Interfaces;
 using System.Threading.Tasks;
+using domain.Enums;
 using infrastructure.Factory;
-using IPermissionService = domain.Interfaces.IPermissionService;
 
 namespace application.Services
 {
@@ -55,6 +55,38 @@ namespace application.Services
                 result.Success = false;
                 result.Error = ex.Message;
                 return result;
+            }
+        }
+
+        public async Task<object> GetSchemaAsync(DatabaseType engine, string connectionString, string userId)
+        {
+            try
+            {
+                // Convertir DatabaseType a string para el factory
+                string engineString = engine.ToString().ToLower();
+                
+                // 1. Crear conexión según motor
+                var conn = _factory.Create(engineString, connectionString);
+
+                if (conn == null)
+                {
+                    return new { Error = $"Engine '{engine}' is not supported." };
+                }
+
+                // 2. Abrir conexión
+                await conn.Open();
+
+                // 3. Obtener el schema
+                var schema = await conn.GetSchemaAsync();
+
+                // 4. Cerrar conexión
+                await conn.Close();
+
+                return schema;
+            }
+            catch (Exception ex)
+            {
+                return new { Error = $"Error getting schema: {ex.Message}" };
             }
         }
     }

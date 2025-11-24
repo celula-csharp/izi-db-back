@@ -30,31 +30,27 @@ public class MongoDbConnection : IDatabaseConnection
 
     public Task Close()
     {
-        return Task.CompletedTask; // Mongo no necesita cerrar
+        return Task.CompletedTask;
     }
 
     public async Task<List<Dictionary<string, object>>> ExecuteQuery(string query)
     {
-        if (_db == null)
+        if (_database == null) // Cambiado de _db a _database
             throw new Exception("MongoDB not opened.");
-
-        // Query viene así:
-        // { "collection": "users", "filter": { "age": { "$gt": 20 } } }
 
         var doc = JsonSerializer.Deserialize<JsonElement>(query);
 
         string collection = doc.GetProperty("collection").GetString()!;
         var filter = doc.GetProperty("filter").GetRawText();
 
-        var bsonFilter = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<MongoDB.Bson.BsonDocument>(filter);
-        var coll = _db.GetCollection<MongoDB.Bson.BsonDocument>(collection);
+        var bsonFilter = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<BsonDocument>(filter);
+        var coll = _database.GetCollection<BsonDocument>(collection); // Cambiado de _db a _database
 
         var result = await coll.Find(bsonFilter).ToListAsync();
 
         return result.Select(r => r.ToDictionary()).ToList();
     }
 
-    // ✅ NUEVO método TestConnection
     public async Task<bool> TestConnection()
     {
         try
@@ -69,7 +65,6 @@ public class MongoDbConnection : IDatabaseConnection
         }
     }
 
-    // ✅ NUEVO método GetSchemaAsync
     public async Task<object> GetSchemaAsync()
     {
         if (_database == null)

@@ -1,4 +1,5 @@
 using application.DTOs;
+using domain.Enums;
 
 namespace application.Interfaces
 {
@@ -10,5 +11,7 @@ namespace application.Interfaces
             string connectionString,
             string userId
         );
+        
+        Task<object> GetSchemaAsync(DatabaseType engine, string connectionString, string userId);
     }
 }
