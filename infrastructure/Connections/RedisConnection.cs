@@ -1,4 +1,5 @@
 using System.Text.Json;
+using domain.Enums;
 using domain.Interfaces;
 using StackExchange.Redis;
 
@@ -6,18 +7,20 @@ namespace infrastructure.Connections;
 
 public class RedisConnection : IDatabaseConnection
 {
-    private readonly string _connectionString;
+    public string ConnectionString { get; set; }
+    public DatabaseType DatabaseType => DatabaseType.Redis;
+
     private ConnectionMultiplexer? _redis;
     private IDatabase? _db;
 
     public RedisConnection(string connectionString)
     {
-        _connectionString = connectionString;
+        ConnectionString = connectionString;
     }
-
+    
     public async Task Open()
     {
-        _redis = await ConnectionMultiplexer.ConnectAsync(_connectionString);
+        _redis = await ConnectionMultiplexer.ConnectAsync(ConnectionString);
         _db = _redis.GetDatabase();
     }
 
@@ -102,5 +105,33 @@ public class RedisConnection : IDatabaseConnection
         }
 
         return records;
+    }
+
+    // ✅ NUEVO método TestConnection
+    public async Task<bool> TestConnection()
+    {
+        try
+        {
+            await Open();
+            await _db!.PingAsync();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // ✅ NUEVO método GetSchemaAsync
+    public async Task<object> GetSchemaAsync()
+    {
+        if (_redis == null)
+            throw new InvalidOperationException("Connection not opened.");
+
+        var endpoints = _redis.GetEndPoints();
+        var server = _redis.GetServer(endpoints.First());
+        var keys = server.Keys().Take(100).Select(k => k.ToString()).ToList(); // Limitar a 100 claves
+
+        return new { Keys = keys };
     }
 }

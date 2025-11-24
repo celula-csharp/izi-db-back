@@ -1,27 +1,30 @@
-using domain.Interfaces;
-using MongoDB.Driver;
 using System.Text.Json;
+using domain.Enums;
+using domain.Interfaces;
+using MongoDB.Bson;
+using MongoDB.Driver;
 
 namespace infrastructure.Connections;
 
 public class MongoDbConnection : IDatabaseConnection
 {
-    private readonly string _connectionString;
-    private IMongoDatabase? _db;
+    public string ConnectionString { get; set; }
+    public DatabaseType DatabaseType => DatabaseType.MongoDb;
 
+    private IMongoClient? _client;
+    private IMongoDatabase? _database;
+    
     public MongoDbConnection(string connectionString)
     {
-        _connectionString = connectionString;
+        ConnectionString = connectionString;
     }
 
     public Task Open()
     {
-        var client = new MongoClient(_connectionString);
-
-        string dbName = MongoUrl.Create(_connectionString).DatabaseName 
-                        ?? "default";
-
-        _db = client.GetDatabase(dbName);
+        _client = new MongoClient(ConnectionString);
+        var mongoUrl = new MongoUrl(ConnectionString);
+        string dbName = string.IsNullOrEmpty(mongoUrl.DatabaseName) ? "test" : mongoUrl.DatabaseName;
+        _database = _client.GetDatabase(dbName);
         return Task.CompletedTask;
     }
 
@@ -49,5 +52,38 @@ public class MongoDbConnection : IDatabaseConnection
         var result = await coll.Find(bsonFilter).ToListAsync();
 
         return result.Select(r => r.ToDictionary()).ToList();
+    }
+
+    // ✅ NUEVO método TestConnection
+    public async Task<bool> TestConnection()
+    {
+        try
+        {
+            await Open();
+            await _database!.ListCollectionNamesAsync();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // ✅ NUEVO método GetSchemaAsync
+    public async Task<object> GetSchemaAsync()
+    {
+        if (_database == null)
+            throw new InvalidOperationException("Connection not opened.");
+
+        var collections = new List<object>();
+        var collectionsCursor = await _database.ListCollectionNamesAsync();
+        var collectionNames = await collectionsCursor.ToListAsync();
+
+        foreach (var name in collectionNames)
+        {
+            collections.Add(new { Name = name });
+        }
+
+        return new { Collections = collections };
     }
 }
